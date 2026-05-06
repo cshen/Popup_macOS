@@ -1,0 +1,7 @@
+    name = "Say"
+    description = "Say the selected text"
+    author = "C Shen"
+    version = "1.0"
+    actions = "execute_shell_script"
+    shell_script = "script.sh {POPUP_PLAIN_TEXT}"
+

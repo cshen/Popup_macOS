@@ -1,0 +1,7 @@
+name = "Google Scholar"
+description = "Search Google Scholar for the selected text"
+author = "C. Shen"
+version = "1.0"
+icon = ""
+actions = "open_url"
+open_url = "https://scholar.google.com/scholar?hl=en&q={POPUP_URLENCODED_TEXT}"

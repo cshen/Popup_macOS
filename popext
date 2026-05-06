@@ -1,0 +1,582 @@
+#!/usr/bin/env bash
+# popext — command-line manager for Popup.app extensions
+#
+# Usage:  popext <command> [arguments]
+# Run     popext help   for full documentation.
+
+set -uo pipefail
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+POPUP_CONFIG_DIR="${HOME}/.config/Popup"
+EXTENSIONS_DIR="${POPUP_CONFIG_DIR}/extensions"
+STATE_FILE="${POPUP_CONFIG_DIR}/extensions_state.json"   # used by Popup.app
+LIST_FILE="${POPUP_CONFIG_DIR}/extensions_list.json"     # maintained by popext
+
+# ── Colours ───────────────────────────────────────────────────────────────────
+# Disable colours when not writing to a terminal
+if [[ -t 1 ]]; then
+    RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[1;33m'
+    BLUE=$'\033[0;34m'; CYAN=$'\033[0;36m'
+    BOLD=$'\033[1m';    DIM=$'\033[2m';     RESET=$'\033[0m'
+else
+    RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; BOLD=''; DIM=''; RESET=''
+fi
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+info()    { echo -e "${BLUE}==>${RESET} ${BOLD}${*}${RESET}"; }
+success() { echo -e "${GREEN}✓${RESET}  ${*}"; }
+warn()    { echo -e "${YELLOW}⚠${RESET}  ${*}"; }
+err()     { echo -e "${RED}✗${RESET}  ${*}" >&2; }
+die()     { err "${*}"; exit 1; }
+
+ensure_dirs() {
+    mkdir -p "${EXTENSIONS_DIR}"
+}
+
+# ── JSON helpers (python3 is always available on macOS) ───────────────────────
+
+# Print the value of a top-level key from a JSON object file, or "" if missing.
+_json_get() {
+    local file="$1" key="$2"
+    [[ -f "$file" ]] || { echo ""; return; }
+    python3 - "$file" "$key" <<'EOF'
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+    v = data.get(sys.argv[2])
+    print(v if v is not None else "")
+except Exception:
+    print("")
+EOF
+}
+
+# Set (or create) a top-level key in a JSON object file.
+# value must be a valid JSON literal: true, false, or a quoted string.
+_json_set() {
+    local file="$1" key="$2" raw_value="$3"
+    python3 - "$file" "$key" "$raw_value" <<'EOF'
+import json, os, sys
+file, key, raw = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    data = json.load(open(file))
+except Exception:
+    data = {}
+# raw_value is already a Python literal (true→True handled by json.loads)
+data[key] = json.loads(raw)
+tmp = file + ".tmp"
+with open(tmp, "w") as f:
+    json.dump(data, f, indent=2, sort_keys=True)
+    f.write("\n")
+os.replace(tmp, file)
+EOF
+}
+
+# Remove a top-level key from a JSON object file (no-op if missing).
+_json_delete() {
+    local file="$1" key="$2"
+    [[ -f "$file" ]] || return 0
+    python3 - "$file" "$key" <<'EOF'
+import json, os, sys
+file, key = sys.argv[1], sys.argv[2]
+try:
+    data = json.load(open(file))
+    data.pop(key, None)
+    tmp = file + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, file)
+except Exception:
+    pass
+EOF
+}
+
+# Return "yes" if a key exists in a JSON object file, else "no".
+_json_has_key() {
+    local file="$1" key="$2"
+    [[ -f "$file" ]] || { echo "no"; return; }
+    python3 - "$file" "$key" <<'EOF'
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+    print("yes" if sys.argv[2] in data else "no")
+except Exception:
+    print("no")
+EOF
+}
+
+# ── extensions_list.json helpers ──────────────────────────────────────────────
+# Schema: { "<folderName>": { "name": "…", "version": "…", "source": "…" } }
+
+_list_set() {
+    local folder="$1" name="$2" version="$3" source="$4"
+    python3 - "$LIST_FILE" "$folder" "$name" "$version" "$source" <<'EOF'
+import json, os, sys
+file, folder, name, version, source = sys.argv[1:]
+try:
+    data = json.load(open(file))
+except Exception:
+    data = {}
+data[folder] = {"name": name, "version": version, "source": source}
+tmp = file + ".tmp"
+with open(tmp, "w") as f:
+    json.dump(data, f, indent=2, sort_keys=True)
+    f.write("\n")
+os.replace(tmp, file)
+EOF
+}
+
+_list_get_field() {
+    local folder="$1" field="$2"
+    [[ -f "$LIST_FILE" ]] || { echo ""; return; }
+    python3 - "$LIST_FILE" "$folder" "$field" <<'EOF'
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+    print(data.get(sys.argv[2], {}).get(sys.argv[3], ""))
+except Exception:
+    print("")
+EOF
+}
+
+_list_delete() {
+    _json_delete "$LIST_FILE" "$1"
+}
+
+# ── TOML helpers ──────────────────────────────────────────────────────────────
+# Reads a flat "key = "value"" TOML file; returns the value for the given key.
+_toml_get() {
+    local file="$1" key="$2"
+    [[ -f "$file" ]] || { echo ""; return; }
+    python3 - "$file" "$key" <<'EOF'
+import sys, re
+file, key = sys.argv[1], sys.argv[2]
+try:
+    for line in open(file):
+        line = line.strip()
+        if line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        if k.strip() == key:
+            v = v.strip().strip('"').strip("'")
+            print(v)
+            sys.exit(0)
+except Exception:
+    pass
+EOF
+}
+
+# Returns path to the first *.toml file inside an extension folder, or "".
+_find_toml() {
+    local folder="$1"
+    find "$folder" -maxdepth 1 -name "*.toml" 2>/dev/null | head -1
+}
+
+# ── State helpers ─────────────────────────────────────────────────────────────
+_is_enabled() {
+    local folder_name="$1"
+    local val; val=$(_json_get "$STATE_FILE" "$folder_name")
+    # Default true for unknown extensions (matches app behaviour)
+    [[ "$val" == "false" ]] && echo "false" || echo "true"
+}
+
+# ── Post-install registration ─────────────────────────────────────────────────
+# Reads the .toml, updates extensions_state.json (preserving existing state)
+# and extensions_list.json.
+_register() {
+    local folder_name="$1" source="$2"
+    local ext_dir="${EXTENSIONS_DIR}/${folder_name}"
+
+    local toml; toml=$(_find_toml "$ext_dir")
+    local name version
+    name=$( [[ -n "$toml" ]] && _toml_get "$toml" "name"    || echo "")
+    version=$( [[ -n "$toml" ]] && _toml_get "$toml" "version" || echo "")
+    name="${name:-${folder_name}}"
+    version="${version:-unknown}"
+
+    # Only write state if the extension is newly seen (preserves enable/disable)
+    if [[ "$(_json_has_key "$STATE_FILE" "$folder_name")" == "no" ]]; then
+        _json_set "$STATE_FILE" "$folder_name" "true"
+    fi
+
+    _list_set "$folder_name" "$name" "$version" "$source"
+}
+
+# ── Install: GitHub ───────────────────────────────────────────────────────────
+_install_github() {
+    local arg="$1"
+    # Normalise  owner/repo  →  full HTTPS URL
+    local url="$arg"
+    if [[ "$url" != http* ]]; then
+        url="https://github.com/${url}"
+    fi
+    url="${url%.git}"   # strip trailing .git if supplied
+
+    local repo_name; repo_name=$(basename "$url")
+    local dest="${EXTENSIONS_DIR}/${repo_name}"
+
+    if [[ -d "${dest}/.git" ]]; then
+        warn "'${repo_name}' is already installed (git). Use 'update' to pull latest changes."
+        return 0
+    fi
+    [[ -d "$dest" ]] && die "'${repo_name}' already exists as a local extension. Remove it first."
+
+    info "Cloning ${url} …"
+    git clone --depth 1 "$url" "$dest" || die "git clone failed."
+
+    _register "$repo_name" "$url"
+    success "Installed '${repo_name}' from GitHub."
+}
+
+# ── Install: local folder or .popup zip ──────────────────────────────────────
+_install_local() {
+    local src="$1"
+    [[ -e "$src" ]] || die "Path not found: ${src}"
+
+    if [[ -d "$src" ]]; then
+        # ── Plain directory ──────────────────────────────────────────────────
+        local folder_name; folder_name=$(basename "${src%/}")
+        local dest="${EXTENSIONS_DIR}/${folder_name}"
+        [[ -d "$dest" ]] && die "'${folder_name}' already installed. Remove it first."
+        cp -R "$src" "$dest"
+        _register "$folder_name" "local:${src}"
+        success "Installed '${folder_name}' from local folder."
+
+    elif [[ -f "$src" ]]; then
+        # ── .popup zip (macOS may present it as .popup.zip — both handled) ──
+        local tmp_dir; tmp_dir=$(mktemp -d)
+
+        info "Unpacking $(basename "${src}") …"
+        if ! unzip -q -o "$src" -d "$tmp_dir" 2>/dev/null; then
+            rm -rf "$tmp_dir"
+            die "unzip failed — is '$(basename "${src}")' a valid .popup file?"
+        fi
+
+        # Find top-level sub-directories inside the zip
+        local subdirs=()
+        while IFS= read -r d; do
+            subdirs+=("$d")
+        done < <(find "$tmp_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+
+        if [[ ${#subdirs[@]} -eq 0 ]]; then
+            # Flat zip: all files sit at the top level
+            local folder_name; folder_name=$(basename "$src")
+            folder_name="${folder_name%.zip}"
+            folder_name="${folder_name%.popup}"
+            local dest="${EXTENSIONS_DIR}/${folder_name}"
+            if [[ -d "$dest" ]]; then
+                rm -rf "$tmp_dir"
+                die "'${folder_name}' already installed. Remove it first."
+            fi
+            cp -R "$tmp_dir" "$dest"
+            _register "$folder_name" "local:${src}"
+            success "Installed '${folder_name}' from .popup file."
+        else
+            # One or more sub-folders in the zip
+            local installed=0
+            for subdir in "${subdirs[@]}"; do
+                local folder_name; folder_name=$(basename "$subdir")
+                local dest="${EXTENSIONS_DIR}/${folder_name}"
+                if [[ -d "$dest" ]]; then
+                    warn "'${folder_name}' already installed — skipping. Remove it first to reinstall."
+                    continue
+                fi
+                cp -R "$subdir" "$dest"
+                _register "$folder_name" "local:${src}"
+                success "Installed '${folder_name}' from .popup file."
+                (( installed++ )) || true
+            done
+        fi
+
+        rm -rf "$tmp_dir"
+    else
+        die "Unsupported source: ${src}"
+    fi
+}
+
+# ── Install: bundle file (one source per line, like Brewfile) ────────────────
+_install_bundle() {
+    local bundle="$1"
+    info "Reading bundle file: ${bundle}"
+    local count=0
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%%#*}"    # strip inline comments
+        line="${line//[[:space:]]/}"  # trim all whitespace
+        [[ -z "$line" ]] && continue
+        info "  → ${line}"
+        cmd_install "$line"
+        (( count++ )) || true
+    done < "$bundle"
+    echo
+    success "Bundle complete — ${count} source(s) processed."
+}
+
+# ── Commands ──────────────────────────────────────────────────────────────────
+
+cmd_install() {
+    [[ $# -ge 1 ]] || { cmd_help; exit 1; }
+    ensure_dirs
+    local arg="$1"
+
+    # ── Bundle file? ─────────────────────────────────────────────────────────
+    # A bundle is a plain-text file (not a .popup / .zip) whose lines are
+    # extension sources (GitHub slugs, URLs, or local paths).
+    if [[ -f "$arg" && "$arg" != *.popup && "$arg" != *.zip ]]; then
+        _install_bundle "$arg"
+        return
+    fi
+
+    # ── GitHub URL or owner/repo shorthand ───────────────────────────────────
+    if [[ "$arg" == https://github.com/* || "$arg" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+        _install_github "$arg"
+        return
+    fi
+
+    # ── Local folder or .popup file ───────────────────────────────────────────
+    _install_local "$arg"
+}
+
+# ── update_one: pull latest for one git-based extension ──────────────────────
+_update_one() {
+    local folder_name="$1"
+    local ext_dir="${EXTENSIONS_DIR}/${folder_name}"
+
+    if [[ ! -d "${ext_dir}/.git" ]]; then
+        warn "'${folder_name}' is a local (non-git) extension — update not supported."
+        return
+    fi
+
+    info "Updating '${folder_name}' …"
+    if ! git -C "$ext_dir" pull --ff-only 2>&1; then
+        warn "git pull failed for '${folder_name}'. Try manually: git -C '${ext_dir}' pull"
+        return
+    fi
+
+    # Refresh version in list
+    local toml; toml=$(_find_toml "$ext_dir")
+    local version; version=$( [[ -n "$toml" ]] && _toml_get "$toml" "version" || echo "unknown")
+    local source; source=$(_list_get_field "$folder_name" "source")
+    local name; name=$(_list_get_field "$folder_name" "name")
+    name="${name:-${folder_name}}"
+
+    _list_set "$folder_name" "$name" "$version" "$source"
+    success "Updated '${folder_name}'."
+}
+
+cmd_update() {
+    ensure_dirs
+    local target="${1:-}"
+
+    if [[ -n "$target" ]]; then
+        [[ -d "${EXTENSIONS_DIR}/${target}" ]] || die "Extension not found: ${target}"
+        _update_one "$target"
+        return
+    fi
+
+    # Update all git-based extensions
+    local count=0
+    # Use nullglob-safe loop
+    for ext_dir in "${EXTENSIONS_DIR}"/*/; do
+        [[ -d "$ext_dir" ]] || continue
+        local folder_name; folder_name=$(basename "$ext_dir")
+        _update_one "$folder_name"
+        (( count++ )) || true
+    done
+    [[ $count -eq 0 ]] && warn "No extensions installed."
+}
+
+cmd_remove() {
+    [[ $# -ge 1 ]] || { cmd_help; exit 1; }
+    local folder_name="$1"
+    local ext_dir="${EXTENSIONS_DIR}/${folder_name}"
+    [[ -d "$ext_dir" ]] || die "Extension not found: '${folder_name}'"
+
+    info "Removing '${folder_name}' …"
+    rm -rf "$ext_dir"
+    _json_delete "$STATE_FILE" "$folder_name"
+    _list_delete "$folder_name"
+    success "Removed '${folder_name}'."
+}
+
+cmd_enable() {
+    [[ $# -ge 1 ]] || { cmd_help; exit 1; }
+    local folder_name="$1"
+    [[ -d "${EXTENSIONS_DIR}/${folder_name}" ]] || die "Extension not found: '${folder_name}'"
+    ensure_dirs
+    _json_set "$STATE_FILE" "$folder_name" "true"
+    success "Enabled '${folder_name}'."
+}
+
+cmd_disable() {
+    [[ $# -ge 1 ]] || { cmd_help; exit 1; }
+    local folder_name="$1"
+    [[ -d "${EXTENSIONS_DIR}/${folder_name}" ]] || die "Extension not found: '${folder_name}'"
+    ensure_dirs
+    _json_set "$STATE_FILE" "$folder_name" "false"
+    success "Disabled '${folder_name}'."
+}
+
+cmd_list() {
+    ensure_dirs
+
+    local -a github_exts=()
+    local -a local_exts=()
+
+    for ext_dir in "${EXTENSIONS_DIR}"/*/; do
+        [[ -d "$ext_dir" ]] || continue
+        local folder_name; folder_name=$(basename "$ext_dir")
+        if [[ -d "${ext_dir}/.git" ]]; then
+            github_exts+=("$folder_name")
+        else
+            local_exts+=("$folder_name")
+        fi
+    done
+
+    local total=$(( ${#github_exts[@]} + ${#local_exts[@]} ))
+
+    if [[ $total -eq 0 ]]; then
+        warn "No extensions installed."
+        echo
+        echo -e "  Install one with:  ${CYAN}$(basename "$0") install owner/repo${RESET}"
+        echo -e "  Or from a file:    ${CYAN}$(basename "$0") install /path/to/MyExtension.popup${RESET}"
+        return
+    fi
+
+    _print_ext_row() {
+        local folder_name="$1"
+        local ext_dir="${EXTENSIONS_DIR}/${folder_name}"
+        local toml; toml=$(_find_toml "$ext_dir")
+
+        local name version description author
+        if [[ -n "$toml" ]]; then
+            name=$(_toml_get "$toml" "name")
+            version=$(_toml_get "$toml" "version")
+            description=$(_toml_get "$toml" "description")
+            author=$(_toml_get "$toml" "author")
+        fi
+        name="${name:-${folder_name}}"
+        version="${version:-?}"
+
+        local source; source=$(_list_get_field "$folder_name" "source")
+
+        local enabled; enabled=$(_is_enabled "$folder_name")
+        local status_str
+        if [[ "$enabled" == "true" ]]; then
+            status_str="${GREEN}enabled${RESET}"
+        else
+            status_str="${RED}disabled${RESET}"
+        fi
+
+        printf "  ${BOLD}%-30s${RESET} v%-10s [%b]\n" "$name" "$version" "$status_str"
+        [[ -n "${description:-}" ]] && printf "    ${DIM}%s${RESET}\n" "$description"
+        [[ -n "${author:-}" ]]      && printf "    ${DIM}by %s${RESET}\n" "$author"
+        [[ -n "${source:-}" ]]      && printf "    ${DIM}source: %s${RESET}\n" "$source"
+        printf "    ${DIM}folder: %s${RESET}\n" "$folder_name"
+        echo
+    }
+
+    echo
+    if [[ ${#github_exts[@]} -gt 0 ]]; then
+        echo -e "${BOLD}${CYAN}GitHub Extensions  (${#github_exts[@]})${RESET}"
+        printf "${DIM}%s${RESET}\n" "$(printf '─%.0s' {1..60})"
+        for name in "${github_exts[@]}"; do
+            _print_ext_row "$name"
+        done
+    fi
+
+    if [[ ${#local_exts[@]} -gt 0 ]]; then
+        echo -e "${BOLD}${BLUE}Local Extensions  (${#local_exts[@]})${RESET}"
+        printf "${DIM}%s${RESET}\n" "$(printf '─%.0s' {1..60})"
+        for name in "${local_exts[@]}"; do
+            _print_ext_row "$name"
+        done
+    fi
+
+    echo -e "${DIM}${total} extension(s) installed in ${EXTENSIONS_DIR}${RESET}"
+    echo
+}
+
+# ── Help ──────────────────────────────────────────────────────────────────────
+cmd_help() {
+    cat <<EOF
+
+${BOLD}popext${RESET} — Popup.app extension manager
+
+${BOLD}USAGE${RESET}
+  popext <command> [arguments]
+
+${BOLD}COMMANDS${RESET}
+  ${CYAN}install${RESET}  <source>      Install an extension. <source> can be:
+                          • GitHub short:  ${DIM}owner/repo${RESET}
+                          • GitHub URL:    ${DIM}https://github.com/owner/repo${RESET}
+                          • Local folder:  ${DIM}/path/to/MyExtension/${RESET}
+                          • .popup file:   ${DIM}/path/to/MyExtension.popup${RESET}
+                          • Bundle file:   ${DIM}/path/to/Extfile${RESET}  (one source per line)
+
+  ${CYAN}update${RESET}   [name]        Pull latest changes for a GitHub extension.
+                          Omit name to update all GitHub extensions.
+
+  ${CYAN}remove${RESET}   <name>        Remove an extension by its folder name.
+
+  ${CYAN}enable${RESET}   <name>        Enable a disabled extension.
+  ${CYAN}disable${RESET}  <name>        Disable an extension without removing it.
+
+  ${CYAN}list${RESET}                   List all installed extensions with status.
+
+  ${CYAN}help${RESET}                   Show this help message.
+
+${BOLD}BUNDLE FILE FORMAT${RESET}
+  A plain-text file with one source per line (comments start with #):
+
+    ${DIM}# My Popup extensions
+    cshen/google-scholar
+    cshen/translate
+    https://github.com/someone/another-ext
+    /path/to/LocalExtension.popup${RESET}
+
+  Install all at once:  ${CYAN}popext install ~/Extfile${RESET}
+
+${BOLD}EXAMPLES${RESET}
+  popext install cshen/my-extension
+  popext install https://github.com/cshen/my-extension
+  popext install ~/Downloads/MyExtension.popup
+  popext install ~/Downloads/MyExtension/
+  popext install ~/Extfile
+  popext update
+  popext update  my-extension
+  popext enable  my-extension
+  popext disable my-extension
+  popext remove  my-extension
+  popext list
+
+${BOLD}FILES${RESET}
+  ${DIM}${EXTENSIONS_DIR}/${RESET}
+      Extension storage — one sub-folder per extension.
+
+  ${DIM}${STATE_FILE}${RESET}
+      Enabled/disabled state (read and written by Popup.app and popext).
+
+  ${DIM}${LIST_FILE}${RESET}
+      Install registry maintained by popext (name, version, source).
+
+EOF
+}
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+[[ $# -ge 1 ]] || { cmd_help; exit 0; }
+
+case "$1" in
+    install)          shift; cmd_install  "$@" ;;
+    update)           shift; cmd_update   "${1:-}" ;;
+    remove|uninstall) shift; cmd_remove  "$@" ;;
+    enable)           shift; cmd_enable   "$@" ;;
+    disable)          shift; cmd_disable  "$@" ;;
+    list|ls)                 cmd_list ;;
+    help|--help|-h)          cmd_help ;;
+    *)
+        err "Unknown command: $1"
+        cmd_help
+        exit 1
+        ;;
+esac
+
