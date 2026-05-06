@@ -2,6 +2,12 @@
 
 [Popup](https://github.com/cshen/Popup_macOS) is a macOS text-selection enhancement tool — select any text and a context-aware floating menu appears instantly. This repo contains the extension ecosystem and tooling around Popup.
 
+Popup is served as an alternative to [PopClip](https://www.popclip.app/), which is not freeware. I have been using PopClip for years and wanted to create a free and open-source alternative that I can customize and extend. With Github Copilot, now it becomes possible. 
+Popup is built with Swift. 
+
+Popup supports extensions that can add new actions to the floating menu, allowing you to customize and extend Popup's functionality.
+It's a work in progress, but the core extension system is functional and you can start using and building extensions today. The `popext` CLI tool makes it easy to manage your extensions, whether they're sourced from GitHub, local folders, or bundle files.
+
 ## What's in this repo
 
 | Path | Description |
@@ -16,6 +22,9 @@
 
 ### Install
 
+1. Double click `Popup.dmg` to install Popup.app.
+2. Move `popext` to a folder in your PATH, e.g.`~/bin/`, `/usr/local/bin/`.
+3. Use `popext install` to add extensions from various sources:
 ```bash
 # From GitHub (owner/repo shorthand or full URL)
 popext install a_github_repo/google-scholar
