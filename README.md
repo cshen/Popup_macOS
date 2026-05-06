@@ -89,9 +89,9 @@ open_url = "https://scholar.google.com/scholar?hl=en&q={POPUP_URLENCODED_TEXT}"
 
 ## Authoring Extensions
 
-See the [Popup extension authoring guide](https://github.com/cshen/Popup_macOS/extension.md) for full documentation on writing your own extensions. Bundled extensions in this repo follow the same layout: a folder with a `config.toml` descriptor and optional scripts/icons.
+See the [Popup extension authoring guide](https://github.com/cshen/Popup_macOS/blob/main/extension.md) for full documentation on writing your own extensions. Bundled extensions in this repo follow the same layout: a folder with a `config.toml` descriptor and optional scripts/icons.
 
-See the [Popup extension managment tool](https://github.com/cshen/Popup_macOS/extension_manage.md) for the design detail of `popext`, the CLI extension manager. You can use `popext` to manage your own extensions.
+See the [Popup extension managment tool](https://github.com/cshen/Popup_macOS/blob/main/extension_manage.md) for the design detail of `popext`, the CLI extension manager. You can use `popext` to manage your own extensions.
 
 ## Contributing
 Contributions to the extension ecosystem are welcome! Fork the repo, add your extension bundle to the `extension/` directory, and submit a pull request. Please ensure your extension follows the standard structure and includes a `config.toml` with all required fields.

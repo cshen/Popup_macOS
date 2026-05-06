@@ -89,9 +89,9 @@ open_url = "https://scholar.google.com/scholar?hl=en&q={POPUP_URLENCODED_TEXT}"
 
 ## 编写扩展
 
-完整文档请参见 [Popup 扩展编写指南](https://github.com/cshen/Popup_macOS/extension.md)。本仓库中的扩展遵循相同的布局：一个文件夹包含 `config.toml` 描述文件和可选的脚本/图标。
+完整文档请参见 [Popup 扩展编写指南](https://github.com/cshen/Popup_macOS/blob/main/extension.md)。本仓库中的扩展遵循相同的布局：一个文件夹包含 `config.toml` 描述文件和可选的脚本/图标。
 
-`popext` CLI 扩展管理器的设计细节请参见 [Popup 扩展管理工具说明](https://github.com/cshen/Popup_macOS/extension_manage.md)。你可以使用 `popext` 管理自己的扩展。
+`popext` CLI 扩展管理器的设计细节请参见 [Popup 扩展管理工具说明](https://github.com/cshen/Popup_macOS/blob/main/extension_manage.md)。你可以使用 `popext` 管理自己的扩展。
 
 ## 贡献
 
