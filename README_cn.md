@@ -2,8 +2,7 @@
 
 [Popup](https://github.com/cshen/Popup_macOS) 是一款 macOS 文本选择增强工具——选中任意文本，一个上下文感知的浮动菜单会立刻弹出。本仓库包含 Popup 的扩展生态和相关工具。
 
-Popup 是 [PopClip](https://www.popclip.app/) 的替代方案，后者并非免费软件。我使用 PopClip 多年，一直想创建一个免费开源的替代品，能够自由定制和扩展。借助 Github Copilot，这个想法终于成为现实。
-Popup 使用 Swift 构建。
+Popup 是 [PopClip](https://www.popclip.app/) 的替代方案，后者并非免费软件。
 
 Popup 支持通过扩展为浮动菜单添加新的操作，让你可以自定义和扩展 Popup 的功能。
 目前项目仍在开发中，但核心扩展系统已经可用，你可以立即开始使用和构建扩展。`popext` CLI 工具让你可以轻松管理扩展——无论是来自 GitHub、本地文件夹还是 bundle 文件。
