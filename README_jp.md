@@ -12,6 +12,7 @@ Popup は拡張機能をサポートしており、フローティングメニ�
 
 | パス | 説明 |
 |------|-------------|
+| `Casks/popup.rb` | Popup.app をインストールするための Homebrew cask |
 | `popext` | CLI 拡張機能マネージャー — Popup 拡張機能のインストール、更新、削除、有効/無効化、一覧表示 |
 | `extension/` | 学習用またはそのまま使えるサンプル拡張機能バンドル |
 | `Popup.dmg` | インストール用 Popup.app ディスクイメージ |
@@ -22,9 +23,14 @@ Popup は拡張機能をサポートしており、フローティングメニ�
 
 ### インストール
 
-1. `Popup.dmg` をダブルクリックして Popup.app をインストールします。
-2. `popext` を PATH が通っているフォルダ（例: `~/bin/`、`/usr/local/bin/`）に移動します。
-3. `popext install` を使用して、さまざまなソースから拡張機能を追加できます:
+1. Homebrew で Popup.app をインストールします:
+```bash
+brew tap cshen/popup_macos https://github.com/cshen/Popup_macOS
+brew install --cask cshen/popup_macos/popup
+```
+2. または `Popup.dmg` をダブルクリックして Popup.app を手動でインストールします。
+3. `popext` を PATH が通っているフォルダ（例: `~/bin/`、`/usr/local/bin/`）に移動します。
+4. `popext install` を使用して、さまざまなソースから拡張機能を追加できます:
 ```bash
 # GitHub から (owner/repo の省略形または完全な URL)
 popext install a_github_repo/google-scholar

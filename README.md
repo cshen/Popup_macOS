@@ -12,6 +12,7 @@ It's a work in progress, but the core extension system is functional and you can
 
 | Path | Description |
 |------|-------------|
+| `Casks/popup.rb` | Homebrew cask for installing Popup.app |
 | `popext` | CLI extension manager — install, update, remove, enable/disable, and list Popup extensions |
 | `extension/` | Example extension bundles to learn from or use directly |
 | `Popup.dmg` | Popup.app disk image for installation |
@@ -22,9 +23,14 @@ It's a work in progress, but the core extension system is functional and you can
 
 ### Install
 
-1. Double click `Popup.dmg` to install Popup.app.
-2. Move `popext` to a folder in your PATH, e.g.`~/bin/`, `/usr/local/bin/`.
-3. Use `popext install` to add extensions from various sources:
+1. Install Popup.app with Homebrew:
+```bash
+brew tap cshen/popup_macos https://github.com/cshen/Popup_macOS
+brew install --cask cshen/popup_macos/popup
+```
+2. Or double click `Popup.dmg` to install Popup.app manually.
+3. Move `popext` to a folder in your PATH, e.g. `~/bin/`, `/usr/local/bin/`.
+4. Use `popext install` to add extensions from various sources:
 ```bash
 # From GitHub (owner/repo shorthand or full URL)
 popext install a_github_repo/google-scholar
@@ -98,4 +104,3 @@ Contributions to the extension ecosystem are welcome! Fork the repo, add your ex
 
 ## License
 This project is licensed under the MIT License. 
-

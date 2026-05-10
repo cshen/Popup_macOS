@@ -12,6 +12,7 @@ Popup 支持通过扩展为浮动菜单添加新的操作，让你可以自定�
 
 | 路径 | 说明 |
 |------|------|
+| `Casks/popup.rb` | 用于安装 Popup.app 的 Homebrew cask |
 | `popext` | CLI 扩展管理器——安装、更新、删除、启用/禁用和列出 Popup 扩展 |
 | `extension/` | 示例扩展包，可用于学习或直接使用 |
 | `Popup.dmg` | Popup.app 安装磁盘映像 |
@@ -22,9 +23,14 @@ Popup 支持通过扩展为浮动菜单添加新的操作，让你可以自定�
 
 ### 安装
 
-1. 双击 `Popup.dmg` 安装 Popup.app。
-2. 将 `popext` 移动到 PATH 中的某个目录，如 `~/bin/` 或 `/usr/local/bin/`。
-3. 使用 `popext install` 从各种来源添加扩展：
+1. 使用 Homebrew 安装 Popup.app：
+```bash
+brew tap cshen/popup_macos https://github.com/cshen/Popup_macOS
+brew install --cask cshen/popup_macos/popup
+```
+2. 或者双击 `Popup.dmg` 手动安装 Popup.app。
+3. 将 `popext` 移动到 PATH 中的某个目录，如 `~/bin/` 或 `/usr/local/bin/`。
+4. 使用 `popext install` 从各种来源添加扩展：
 ```bash
 # 从 GitHub（支持 owner/repo 缩写或完整 URL）
 popext install a_github_repo/google-scholar
