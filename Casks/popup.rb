@@ -12,6 +12,11 @@ cask "popup" do
 
   app "Popup.app"
 
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-r", "-d", "com.apple.quarantine", "#{appdir}/Popup.app"]
+  end
+
   caveats do
     <<~EOS
       Popup needs Accessibility permission to detect text selections in other apps.
