@@ -1,0 +1,8 @@
+    name = "Opencode"
+    description = "Explain text in opencode"
+    author = "C Shen"
+    version = "1.0"
+    icon = "laser.burst"
+    actions = "execute_shell_script"
+    shell_script = "script.sh {POPUP_PLAIN_TEXT}"
+

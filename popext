@@ -237,7 +237,7 @@ _install_local() {
         # ── Plain directory ──────────────────────────────────────────────────
         local folder_name; folder_name=$(basename "${src%/}")
         local dest="${EXTENSIONS_DIR}/${folder_name}"
-        [[ -d "$dest" ]] && die "'${folder_name}' already installed. Remove it first."
+        [[ -d "$dest" ]] && die "'${folder_name}' already installed. Remove it by: popext uninstall ${folder_name}"
         cp -R "$src" "$dest"
         _register "$folder_name" "local:${src}"
         success "Installed '${folder_name}' from local folder."

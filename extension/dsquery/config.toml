@@ -1,0 +1,7 @@
+    name = "Deepseek"
+    description = "Query Deepseek for information about the text"
+    author = "C Shen"
+    version = "1.0"
+    icon = "Deepseek-logo-icon.svg"
+    actions = "execute_shell_script"
+    shell_script = "script.sh {POPUP_PLAIN_TEXT}"
