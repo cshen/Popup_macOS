@@ -2,7 +2,7 @@
 
 [Popup](https://github.com/cshen/Popup_macOS) 是一款 macOS 文本选择增强工具——选中任意文本，一个上下文感知的浮动菜单会立刻弹出。本仓库包含 Popup 的扩展生态和相关工具。
 
-Popup 是 [PopClip](https://www.popclip.app/) 的替代方案，后者并非免费软件。
+Popup 是 [PopClip](https://www.popclip.app/) 的替代方案。
 
 Popup 支持通过扩展为浮动菜单添加新的操作，让你可以自定义和扩展 Popup 的功能。
 目前项目仍在开发中，但核心扩展系统已经可用，你可以立即开始使用和构建扩展。`popext` CLI 工具让你可以轻松管理扩展——无论是来自 GitHub、本地文件夹还是 bundle 文件。
@@ -29,6 +29,13 @@ brew install --cask cshen/popup_macos/popup
 ```
 2. 或者双击 `Popup.dmg` 手动安装 Popup.app。
 3. 将 `popext` 移动到 PATH 中的某个目录，如 `~/bin/` 或 `/usr/local/bin/`。
+
+```
+xattr -cr /Applications/Popup.app/
+```
+to remove quarantine attribute if you get "can't be opened because it is from an unidentified developer" error.
+
+
 4. 使用 `popext install` 从各种来源添加扩展：
 ```bash
 # 从 GitHub（支持 owner/repo 缩写或完整 URL）
