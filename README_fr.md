@@ -2,8 +2,7 @@
 
 [Popup](https://github.com/cshen/Popup_macOS) est un outil d'amélioration de la sélection de texte pour macOS — sélectionnez n'importe quel texte et un menu flottant contextuel apparaît instantanément. Ce dépôt contient l'écosystème d'extensions et les outils associés à Popup.
 
-Popup se veut une alternative à [PopClip](https://www.popclip.app/), qui n'est pas un logiciel gratuit. J'utilise PopClip depuis des années et je souhaitais créer une alternative gratuite et open source que je peux personnaliser et étendre. Avec GitHub Copilot, c'est désormais possible.
-Popup est développé en Swift.
+Popup se veut une alternative à [PopClip](https://www.popclip.app/), qui n'est pas un logiciel gratuit. 
 
 Popup prend en charge les extensions qui permettent d'ajouter de nouvelles actions au menu flottant, vous permettant de personnaliser et d'étendre les fonctionnalités de Popup.
 C'est un travail en cours, mais le système d'extensions principal est fonctionnel et vous pouvez commencer à utiliser et à créer des extensions dès aujourd'hui. L'outil CLI `popext` facilite la gestion de vos extensions, qu'elles proviennent de GitHub, de dossiers locaux ou de fichiers bundle.
