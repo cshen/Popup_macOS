@@ -28,6 +28,13 @@ brew tap cshen/popup_macos https://github.com/cshen/Popup_macOS
 brew install --cask cshen/popup_macos/popup
 ```
 2. Or double click `Popup.dmg` to install Popup.app manually.
+
+```bash
+xattr -cr /Applications/Popup.app/
+```
+to remove quarantine attribute if you get "Popup.app can't be opened because it is from an unidentified developer" error.
+
+
 3. Move `popext` to a folder in your PATH, e.g. `~/bin/`, `/usr/local/bin/`.
 4. Use `popext install` to add extensions from various sources:
 ```bash
