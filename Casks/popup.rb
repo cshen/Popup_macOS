@@ -11,6 +11,7 @@ cask "popup" do
   depends_on macos: ">= :ventura"
 
   app "Popup.app"
+  binary "#{appdir}/Popup.app/Contents/MacOS/popext"
 
   postflight do
     system_command "/usr/bin/xattr",

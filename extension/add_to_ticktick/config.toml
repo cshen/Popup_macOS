@@ -1,5 +1,5 @@
 name = "Add to ticktick"
-description = "Add the selected text to ticktick/dida365"
+description = "Add the selected text to ticktick or dida365"
 author = "C Shen"
 version = "1.0"
 icon = "ticktick.png"

@@ -1,8 +1,27 @@
-    name = "Opencode"
-    description = "Explain text in opencode"
-    author = "C Shen"
-    version = "1.0"
-    icon = "laser.burst"
-    actions = "execute_shell_script"
-    shell_script = "script.sh {POPUP_PLAIN_TEXT}"
+ name = "OpenCode"
+ description = "AI assistant"
+ author = "C Shen"
+ version = "1.0"
+ icon = "laser.burst"
+
+ 
+ [Summarize]
+ icon = "doc.plaintext"
+ actions = "execute_shell_script"
+ shell_script = "summarize.sh {POPUP_PLAIN_TEXT}"
+ 
+ [Polish]
+ icon = "wand.and.stars"
+ actions = "execute_shell_script"
+ shell_script = "polish.sh {POPUP_PLAIN_TEXT}"
+ 
+ [Explain]
+ icon = "questionmark.circle"
+ actions = "execute_shell_script"
+ shell_script = "explain.sh {POPUP_PLAIN_TEXT}"
+
+[Translate]
+icon = "doc.plaintext"
+actions = "execute_shell_script"
+shell_script = "translate.sh {POPUP_PLAIN_TEXT}"
 
