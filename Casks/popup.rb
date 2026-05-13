@@ -1,6 +1,6 @@
 cask "popup" do
   version "v1.0.2,82d95c59e1ac3834e34238a2d092224a6e56f3bb"
-  sha256 "be74a1ee7499c1e2d04e1714de2740d04f8fd768f5cf812ff9b142698a0f1618"
+  sha256 "1e739ad4760278ce9d75c922f485022f19d8eb79d97a0c6639c17e7d33e3af70"
 
   url "https://raw.githubusercontent.com/cshen/Popup_macOS/#{version.csv.second}/Popup.dmg",
       verified: "raw.githubusercontent.com/cshen/Popup_macOS/"
